@@ -1,0 +1,80 @@
+haruh@MAIN:~/rag-project$ tree ~/rag-project
+/home/haruh/rag-project
+├── Dockerfile.llamacpp
+├── RAG環境構築_再現手順書.docx
+├── RAG環境構築_再現手順書.docx:Zone.Identifier
+├── app
+│   ├── Dockerfile
+│   ├── __pycache__
+│   │   ├── main.cpython-312.pyc
+│   │   └── rag_pipeline.cpython-312.pyc
+│   ├── check_ruri.py
+│   ├── chroma_db
+│   ├── documents
+│   ├── main.py
+│   ├── models
+│   ├── rag_pipeline.py
+│   ├── requirements.txt
+│   └── static
+│       └── index.html
+├── chroma_db
+│   ├── 27957ce2-d379-47e6-acb3-a4646849d016
+│   │   ├── data_level0.bin
+│   │   ├── header.bin
+│   │   ├── length.bin
+│   │   └── link_lists.bin
+│   └── chroma.sqlite3
+├── docker-compose.yml
+├── documents
+│   ├── table_definitions.csv
+│   └── terms.csv
+├── models
+└── volumes
+    ├── huggingface_cache
+    │   ├── hub
+    │   │   └── models--cl-nagoya--ruri-large
+    │   │       ├── blobs
+    │   │       │   ├── 421500f13b8d3fc8e962a4a9ecedf0d55ca14c89
+    │   │       │   ├── 5b43a6b2017be2a69716a70eca14ac6da2c62039
+    │   │       │   ├── 9bbecc17cabbcbd3112c14d6982b51403b264bfa
+    │   │       │   ├── a5f100f6195d24d43874ef262a4952fb077c4f4a
+    │   │       │   ├── a9fee8805dbfe7c72c1f001254387ae95d5e5223
+    │   │       │   ├── aa7f93828b9b976a86365800fe391a61d0fe2907
+    │   │       │   ├── b68441c3f37d8bee79501ca0afe536bf19753928
+    │   │       │   ├── c1512be907529dc3d6907c086ac5dfd0da7d01006c26c189f7a8b0ce6518e646
+    │   │       │   ├── f7640f94e81bb7f4f04daf1668850b38763a13d9
+    │   │       │   └── f789d99277496b282d19020415c5ba9ca79ac875
+    │   │       ├── refs
+    │   │       │   └── main
+    │   │       └── snapshots
+    │   │           └── a011c39b13e8bc137ee13c6bc82191ece46c414c
+    │   │               ├── 1_Pooling
+    │   │               │   └── config.json -> ../../../blobs/b68441c3f37d8bee79501ca0afe536bf19753928
+    │   │               ├── README.md -> ../../blobs/aa7f93828b9b976a86365800fe391a61d0fe2907
+    │   │               ├── config.json -> ../../blobs/5b43a6b2017be2a69716a70eca14ac6da2c62039
+    │   │               ├── config_sentence_transformers.json -> ../../blobs/a9fee8805dbfe7c72c1f001254387ae95d5e5223
+    │   │               ├── model.safetensors -> ../../blobs/c1512be907529dc3d6907c086ac5dfd0da7d01006c26c189f7a8b0ce6518e646
+    │   │               ├── modules.json -> ../../blobs/f7640f94e81bb7f4f04daf1668850b38763a13d9
+    │   │               ├── sentence_bert_config.json -> ../../blobs/f789d99277496b282d19020415c5ba9ca79ac875
+    │   │               ├── special_tokens_map.json -> ../../blobs/9bbecc17cabbcbd3112c14d6982b51403b264bfa
+    │   │               ├── tokenizer_config.json -> ../../blobs/a5f100f6195d24d43874ef262a4952fb077c4f4a
+    │   │               └── vocab.txt -> ../../blobs/421500f13b8d3fc8e962a4a9ecedf0d55ca14c89
+    │   └── xet
+    │       ├── https___cas_serv-tGqkUaZf_CBPHQ6h
+    │       │   └── staging
+    │       └── logs
+    │           └── xet_20260301T122555321+0000_1.log
+    └── ollama
+        ├── id_ed25519
+        ├── id_ed25519.pub
+        └── models
+            ├── blobs
+            │   ├── sha256-1a9f0f5ed111d4405ca6e4621ae0cad1829562da03e44dd6f875ca34dafc0c58
+            │   ├── sha256-52d5b2c5ac8969ace40fe615651d6162ca84babdb434258281126c3563e86f23
+            │   ├── sha256-6da177cee6797ad8f67cdaf6fac5d52818cc0582c7b0779c5c50ef419ca0b088
+            │   └── sha256-783adfd1d2535a48733a6538e08891314a04e9815b1a3f5f7e58195da6532108
+            └── manifests
+                └── hf.co
+                    └── mmnga
+                        └── Llama-3.1-Swallow-8B-Instruct-v0.5-gguf
+                            └── Q4_K_M
