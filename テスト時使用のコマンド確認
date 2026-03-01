@@ -1,0 +1,116 @@
+sudo apt update && sudo apt upgrade -y
+docker --version
+mkdir -p ~/rag-project/{models,documents,chroma_db,app}
+ls
+cd ~/rag-project
+ls
+lsb_release -a
+cd ~/rag-project
+RUN mkdir -p /models
+
+WORKDIR /opt/llama.cpp
+EOF
+
+docker build -f Dockerfile.llamacpp -t llamacpp-cpu:latest .
+
+docker images | grep llamacpp
+
+pip3 install huggingface-hub --break-system-packages
+
+huggingface-cli download   mmnga/Llama-3.1-Swallow-8B-Instruct-v0.5-gguf   Llama-3.1-Swallow-8B-Instruct-v0.5-Q4_K_M.gguf   --local-dir ~/rag-project/models
+
+pip3 show huggingface-hub
+
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+
+source ~/.bashrc
+
+which huggingface-cli
+
+ls ~/.local/bin/ | grep huggingface
+
+pip3 install --force-reinstall huggingface-hub --break-system-packages
+
+ls ~/.local/bin/ | grep huggingface
+
+find / -name "huggingface-cli" 2>/dev/null
+
+ls /home/haruh/make_RAG/project/
+
+cat /home/haruh/make_RAG/project/docker-compose.yml
+
+ls /home/haruh/make_RAG/project/models/
+
+cd ..
+
+cd ~/rag-project
+
+ls
+
+cat docker-compose.yml
+
+mkdir -p ~/rag-project/{volumes/ollama,documents,chroma_db,models,app}
+
+docker compose up -d ollama
+
+docker ps -a
+
+cd /home/haruh/make_RAG/project
+
+docker compose down
+
+docker ps -a
+
+cd ~/rag-project/
+
+ls
+
+docker compose up -d ollama
+
+docker ps | grep ollama
+
+curl http://localhost:11434
+
+docker ps
+
+docker exec -it ollama ollama pull   hf.co/mmnga/Llama-3.1-Swallow-8B-Instruct-v0.5-gguf:Q4_K_M
+
+docker exec -it ollama ollama run   hf.co/mmnga/Llama-3.1-Swallow-8B-Instruct-v0.5-gguf:Q4_K_M   "日本語で答えてください。RAGとは何ですか？"
+
+docker compose run --rm rag_app python check_ruri.py
+
+cd ~/rag-project
+docker compose build rag_app
+docker compose run --rm rag_app python check_ruri.py
+
+cd ~/rag-project
+docker compose build rag_app && docker compose run --rm rag_app python rag_pipeline.py
+
+cd ~/rag-project
+docker compose build rag_app && docker compose run --rm rag_app python rag_pipeline.py
+
+docker compose run --rm rag_app python rag_pipeline.py
+
+mkdir -p ~/rag-project/volumes/huggingface_cache
+
+cd ~/rag-project
+
+docker compose up -d rag_app
+
+docker logs -f rag_app
+
+sed -i 's/    load_vectorstore,//' ~/rag-project/app/main.py
+
+docker compose restart rag_app
+
+docker logs -f rag_app
+
+mkdir -p ~/rag-project/app/static
+
+ls ~/rag-project/app/static/
+
+docker compose restart rag_app
+
+docker logs -f rag_app
+
+http://localhost:8000/ui
