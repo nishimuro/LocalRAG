@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>半導体用語RAG検索</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #1a1a2e;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header h1 { font-size: 1.2rem; font-weight: 600; }
+        header span { font-size: 1.4rem; }
+
+        .container {
+            max-width: 800px;
+            margin: 32px auto;
+            padding: 0 16px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus { border-color: #4a90e2; }
+
+        button {
+            padding: 12px 24px;
+            background: #1a1a2e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            align-self: flex-end;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover { background: #2d2d5e; }
+        button:disabled { background: #999; cursor: not-allowed; }
+
+        .examples {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .example-btn {
+            padding: 6px 12px;
+            background: #f0f2f5;
+            color: #555;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            background: #1a1a2e;
+            color: white;
+            border-color: #1a1a2e;
+        }
+
+        .result-card {
+            display: none;
+        }
+
+        .result-card.visible { display: block; }
+
+        .label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .question-text {
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .answer-text {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #222;
+            white-space: pre-wrap;
+        }
+
+        .sources {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .source-tag {
+            padding: 3px 10px;
+            background: #e8f0fe;
+            color: #1a73e8;
+            border-radius: 12px;
+            font-size: 0.78rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+
+        .loading.visible { display: block; }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-top-color: #1a1a2e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error {
+            color: #e53935;
+            font-size: 0.9rem;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .error.visible { display: block; }
+    </style>
+</head>
+<body>
+
+<header>
+    <span>🔬</span>
+    <h1>半導体用語RAG検索システム</h1>
+</header>
+
+<div class="container">
+    <div class="card">
+        <div class="input-area">
+            <textarea id="question" placeholder="用語や検査データについて質問してください..."></textarea>
+            <button id="askBtn" onclick="ask()">質問する</button>
+        </div>
+        <div class="error" id="error"></div>
+        <div class="examples">
+            <span style="font-size:0.8rem;color:#888;align-self:center;">例：</span>
+            <button class="example-btn" onclick="setQuestion('フォトリソグラフィとは何ですか？')">フォトリソグラフィとは？</button>
+            <button class="example-btn" onclick="setQuestion('inspection_photoテーブルはどのような情報を持っていますか？')">inspection_photoとは？</button>
+            <button class="example-btn" onclick="setQuestion('line_widthの正常範囲を教えてください。')">line_widthの正常範囲</button>
+            <button class="example-btn" onclick="setQuestion('CMPとはどのような工程ですか？')">CMPとは？</button>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <span class="spinner"></span>回答を生成中です...
+    </div>
+
+    <div class="card result-card" id="result">
+        <div class="label">質問</div>
+        <div class="question-text" id="resultQuestion"></div>
+        <div class="label">回答</div>
+        <div class="answer-text" id="resultAnswer"></div>
+        <div class="sources">
+            <span class="label" style="margin:0">参照元：</span>
+            <div id="resultSources"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://localhost:8000";
+
+    function setQuestion(text) {
+        document.getElementById("question").value = text;
+    }
+
+    async function ask() {
+        const question = document.getElementById("question").value.trim();
+        if (!question) return;
+
+        const btn = document.getElementById("askBtn");
+        const loading = document.getElementById("loading");
+        const result = document.getElementById("result");
+        const error = document.getElementById("error");
+
+        btn.disabled = true;
+        loading.classList.add("visible");
+        result.classList.remove("visible");
+        error.classList.remove("visible");
+
+        try {
+            const response = await fetch(`${API_URL}/ask`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question })
+            });
+
+            if (!response.ok) throw new Error(`エラー: ${response.status}`);
+
+            const data = await response.json();
+
+            document.getElementById("resultQuestion").textContent = data.question;
+            document.getElementById("resultAnswer").textContent = data.answer;
+
+            const sourcesEl = document.getElementById("resultSources");
+            sourcesEl.innerHTML = data.sources
+                .map(s => `<span class="source-tag">${s}</span>`)
+                .join("");
+
+            result.classList.add("visible");
+
+        } catch (e) {
+            error.textContent = `接続エラーが発生しました: ${e.message}`;
+            error.classList.add("visible");
+        } finally {
+            btn.disabled = false;
+            loading.classList.remove("visible");
+        }
+    }
+
+    // Enterキーで送信（Shift+Enterは改行）
+    document.getElementById("question").addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            ask();
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+テーブル名,工程,列名,意味,正常範囲,単位,備考
+inspection_photo,フォトリソグラフィ,line_width,ゲート線幅,0.12~0.14,μm,外れ値は要確認
+inspection_photo,フォトリソグラフィ,exposure_time,露光時間,45~55,ms,温度依存性あり
+inspection_photo,フォトリソグラフィ,defect_count,欠陥数,0~3,個,3超は不良品
+inspection_etch,エッチング,etch_depth,エッチング深さ,0.45~0.55,μm,均一性が重要
+inspection_etch,エッチング,uniformity,均一性,95~100,%,95未満は要再検査
+inspection_cvd,CVD,film_thickness,膜厚,0.98~1.02,μm,±2%以内が基準
+inspection_cvd,CVD,deposition_rate,成膜速度,0.8~1.2,nm/s,温度管理が重要
+inspection_cmp,CMP,surface_roughness,表面粗さ,0~0.5,nm,値が小さいほど良好
+inspection_cmp,CMP,removal_rate,研磨レート,200~300,nm/min,均一性に影響
