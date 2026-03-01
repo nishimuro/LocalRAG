@@ -1,0 +1,240 @@
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+ -d '{"question": "歩留まりとは何ですか？"}'
+
+ curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "フォトリソグラフィとは何ですか？"}'
+  
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+ -d '{"question": "歩留まりとは高いほど良いとされるものですか？"}'
+
+問題の原因分析
+まず「同一文の繰り返し」と「あやふや検索への対応」は原因が異なります。
+① 同一文の繰り返し
+これはLLM側の問題です。原因は2つ考えられます。
+・temperature（創造性パラメータ）が低すぎる
+　→ 現在0.1に設定しており、繰り返しやすい状態
+・プロンプトテンプレートの指示が不十分
+　→ 「簡潔に答えよ」「繰り返すな」の指示がない
+② あやふや検索への対応不足
+これはRAG検索（Embedding）側の問題です。
+「line_width」→ 「ライン幅」では検索できない
+「フォトリソ」→ 「フォトリソグラフィ」では検索できない
+現在の単純なベクトル類似度検索だけでは表記ゆれや略語に弱いです。
+
+対処方法一覧
+問題対処方法効果難易度繰り返しtemperatureを0.3〜0.5に上げる◎低繰り返しプロンプトに繰り返し禁止を追加◎低あやふや検索HyDE（仮説ドキュメント生成）◎中あやふや検索リランキング◎中あやふや検索BM25ハイブリッド検索○中全般チャンクサイズの調整○低
+
+ドキュメントを増やすことの効果
+部分的に効きますが、根本解決にはなりません。
+効く場合：
+　「そもそも答えが存在しない」問題
+　→ ドキュメントを増やせば解決
+
+効かない場合：
+　「答えはあるのに検索でヒットしない」問題
+　→ 検索の仕組み自体を改善する必要がある
+今回の問題は後者が主なので、検索の改善が優先です。
+
+特に効果的な2つの方法の説明
+HyDE（Hypothetical Document Embedding）
+「あやふやな質問」を直接検索するのではなく、一度LLMに仮の回答を生成させてからその回答でベクトル検索します。
+通常：
+「フォトリソって何？」→ ベクトル化 → 検索 → ヒットしにくい
+
+HyDE：
+「フォトリソって何？」
+　↓ LLMで仮回答生成
+「フォトリソグラフィとは半導体製造において...」
+　↓ 仮回答をベクトル化して検索
+　→ 正確なドキュメントにヒットしやすい
+BM25ハイブリッド検索
+ベクトル検索（意味の類似）とBM25（キーワードの一致）を組み合わせます。
+ベクトル検索：意味が近いものを検索（あいまい検索に強い）
+BM25：キーワードが一致するものを検索（正確な用語に強い）
+　↓ 両方の結果を統合
+より幅広い検索が可能に
+
+推奨する進め方
+難易度の低いものから順番に試すのが効率的です。
+Step1（すぐできる）：
+　・temperatureを0.1 → 0.4に変更
+　・プロンプトに「簡潔に」「繰り返さず」を追加
+
+Step2（中程度）：
+　・BM25ハイブリッド検索の導入
+
+Step3（発展）：
+　・HyDeの導入
+　・PDFドキュメント対応と合わせて実施
+
+
+
+
+
+Step1：すぐできる改善（rag_pipeline.py修正のみ）
+temperature変更
+# 現在
+llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL, temperature=0.1)
+# 変更後
+llm = ChatOllama(model=MODEL_NAME, base_url=OLLAMA_BASE_URL, temperature=0.4)
+
+プロンプト改善
+PROMPT_TEMPLATE = """あなたは半導体製造の専門知識を持つアシスタントです。
+以下の参考情報をもとに、質問に日本語で簡潔に答えてください。
+同じ内容を繰り返さず、重複のない回答を心がけてください。
+参考情報に答えがない場合は「情報が見つかりませんでした」と答えてください。
+
+参考情報：
+{context}
+
+質問：{question}
+
+回答："""
+
+Step2：BM25ハイブリッド検索
+現在はベクトル検索のみです。BM25（キーワード一致）を加えて両方の結果を統合します。
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
+
+# BM25リトリーバー（キーワード検索）
+bm25_retriever = BM25Retriever.from_documents(documents)
+bm25_retriever.k = 3
+
+# ベクトルリトリーバー（意味検索）
+vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+# 両方を統合（50%ずつ）
+ensemble_retriever = EnsembleRetriever(
+    retrievers=[bm25_retriever, vector_retriever],
+    weights=[0.5, 0.5]
+)
+```
+
+「フォトリソ」のような略語はBM25が、「露光に関係する工程」のような意味的な質問はベクトル検索が補完し合います。
+
+追加パッケージが1つ必要です。
+```
+rank_bm25
+
+Step3：HyDE（仮説ドキュメント生成）
+質問をそのまま検索せず、LLMに一度仮の回答を生成させてからその回答で検索します。
+from langchain.chains import HypotheticalDocumentEmbedder
+
+# 仮回答生成用プロンプト
+hyde_prompt = PromptTemplate(
+    input_variables=["question"],
+    template="""以下の質問に対する典型的な回答を1〜2文で生成してください。
+質問：{question}
+回答："""
+)
+
+# HyDEリトリーバーの構築
+hyde_embeddings = HypotheticalDocumentEmbedder.from_llm(
+    llm=llm,
+    base_embeddings=embeddings,
+    prompt=hyde_prompt
+)
+
+hyde_vectorstore = Chroma(
+    persist_directory=CHROMA_PATH,
+    embedding_function=hyde_embeddings
+)
+hyde_retriever = hyde_vectorstore.as_retriever(search_kwargs={"k": 3})
+```
+
+仕組みのイメージはこうです。
+```
+質問：「フォトリソとは？」
+　↓ LLMで仮回答生成
+「フォトリソグラフィとは半導体製造において
+　回路パターンをウェハに転写する工程です」
+　↓ 仮回答をベクトル化して検索
+　→ terms.csvの該当行にヒットしやすくなる
+```
+
+HyDEはLLMを2回呼ぶため、応答時間が長くなる点が注意点です。CPU環境では体感できる遅延が出ます。
+
+---
+
+## 3つの方法の組み合わせ方針
+```
+最終的な構成（理想）：
+
+質問
+　↓ HyDE（仮回答生成）
+　↓ ハイブリッド検索（BM25 + ベクトル）
+　↓ 上位ドキュメントを取得
+　↓ Swallow（temperature=0.4 + 改善プロンプト）
+　↓ 回答
+　
+
+
+1. 検索精度の向上（追加手法）Step1〜3以外にも手法があります。リランキング
+検索で取得した上位ドキュメントを、別のモデルで再スコアリングして並べ替えます。ベクトル検索で上位10件取得
+　↓ Cross-Encoderで関連度を再計算
+　↓ 上位3件だけLLMに渡す精度向上効果が大きく、HyDEと組み合わせると特に効果的です。チャンク戦略の改善
+現在は1行や1テーブルをそのまま1チャンクにしています。より細かく・または文脈を持たせた分割にすることで検索精度が上がります。現在：1行 = 1チャンク
+改善案（Parent-Child Chunking）：
+　親チャンク（広い文脈）で検索
+　子チャンク（具体的な内容）をLLMに渡す
+　
+2. モデルの適応
+ファインチューニング（LLMの追加学習）
+Swallow-8Bに社内ドキュメントで追加学習させることは技術的には可能です。ただし現実的な制約があります。
+項目状況必要VRAM最低16GB（QLoRA使用時）学習データ質問・回答ペアが数百〜数千件必要学習時間GPU環境で数時間〜数日CPU環境現実的に不可能
+現状のCPUのみの環境ではファインチューニングは困難です。
+Embeddingモデルのファインチューニング
+こちらはLLMより軽量で現実的です。社内用語ペアを使ってruri-largeをドメイン適応させます。
+学習データ例：
+（「line_width」, 「ゲート線幅」）→ 類似ペア
+（「line_width」, 「露光時間」）→ 非類似ペア
+ただしGPU環境が望ましく、CPU単体では時間がかかります。
+プロンプトエンジニアリング（学習不要・すぐできる）
+モデルを変えずにプロンプトだけで挙動を制御します。ファインチューニングの代替として非常に費用対効果が高いです。
+・Few-shot例示（回答例をプロンプトに含める）
+・Chain-of-Thought（「まず〇〇を確認してから答えよ」）
+・出力フォーマット指定（JSON形式で返させる等）
+
+3. 運用・使いやすさの改善
+会話履歴の保持（メモリ機能）
+現在は1問1答で会話の文脈が引き継がれません。
+現在：
+　Q1「フォトリソとは？」→ 回答
+　Q2「その工程の検査基準は？」→ 「その」が何か不明
+
+改善後：
+　Q1の文脈を保持してQ2に答えられる
+LangChainのConversationBufferMemoryで実装できます。
+ドキュメント管理UI
+現在はCSVファイルを直接編集する必要があります。ブラウザ上でドキュメントを追加・削除・更新できるUIを追加することで、エンジニア以外でも運用できます。
+回答の信頼度表示
+検索スコアを表示することで「この回答はドキュメントに根拠がある」「この回答は不確かかもしれない」を利用者に示せます。
+
+4. 評価・モニタリング
+RAGASによる自動評価
+RAGASというライブラリを使うと、RAGの品質を自動で数値評価できます。
+評価指標：
+・Faithfulness（回答がドキュメントに忠実か）
+・Answer Relevancy（質問への関連度）
+・Context Recall（必要な情報を拾えているか）
+改善前後の比較ができるため、どの手法が効果的かを客観的に判断できます。
+
+優先度の整理
+CPU環境・社内ツールという条件を考慮した現実的な優先順位です。
+高優先度（すぐ効果が出る）：
+　Step1（temperature・プロンプト改善）
+　プロンプトエンジニアリング（Few-shot等）
+　会話履歴の保持
+
+中優先度（効果大・難易度中）：
+　Step2（BM25ハイブリッド検索）
+　リランキング
+　ドキュメント管理UI
+
+低優先度（GPU環境があれば）：
+　Step3（HyDE）
+　Embeddingモデルのファインチューニング
+　LLMファインチューニング
